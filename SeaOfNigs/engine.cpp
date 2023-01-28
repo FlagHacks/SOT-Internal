@@ -107,6 +107,114 @@ int AimAtMovingTarget(const FVector& oTargetPos, const FVector& oTargetVelocity,
 	return AimAtStaticTarget(oAimAt, fProjectileSpeed, fProjectileGravityScalar, oSourcePos, oOutLow, oOutHigh);
 }
 
+float time_func(float t, float K, float L, float M, float N, float r, float w, float theta, float S2)
+{
+	const float K2 = K * K;
+	const float L2 = L * L;
+	const float M2 = M * M;
+	const float N2 = N * N;
+	const float r2 = r * r;
+	return N2 * t * t * t * t + ((2 * M * N) - S2) * t * t + 2 * r * (K * cos(theta + (w * t)) + L * sin(theta + (w * t))) + K2 + L2 + M2 + r2;
+}
+
+float time_derivFunc(float t, float K, float L, float M, float N, float r, float w, float theta, float S2)
+{
+	const float N2 = N * N;
+	return 4 * N2 * t * t * t * t + 2 * ((2 * M * N) - S2) * t + 2 * r * w * (L * cos(theta + (w * t)) - K * sin(theta + (w + t)));
+}
+
+float newtonRaphson(float t, float K, float L, float M, float N, float r, float w, float theta, float S2)
+{
+	float h = time_func(t, K, L, M, N, r, w, theta, S2) / time_derivFunc(t, K, L, M, N, r, w, theta, S2);
+	int counter = 0;
+	while (abs(h) >= 0.01)
+	{
+		if (counter > 200)
+		{
+			break;
+		}
+		h = time_func(t, K, L, M, N, r, w, theta, S2) / time_derivFunc(t, K, L, M, N, r, w, theta, S2);
+		t = t - h;
+		counter++;
+	}
+	return t;
+}
+
+int AimAtShip(const FVector& oTargetPos, const FVector& oTargetVelocity, const FVector& oTargetAngularVelocity, const FVector& oSourcePos, const FVector& oSourceVelocity, float fProjectileSpeed, float fProjectileGravityScalar, FRotator& oOutLow, FRotator& oOutHigh)
+{
+	const FVector pPos = oSourcePos; //(oSourceVelocity * 0.01); // How long time the cannon is inside coordinate system of own ship? 0.01s? Remove?
+	const float w = oTargetAngularVelocity.Z;
+	if (w > -1.0 && w < 1.0)
+	{
+		int n = AimAtMovingTarget(oTargetPos, oTargetVelocity, fProjectileSpeed, fProjectileGravityScalar, pPos, oSourceVelocity, oOutLow, oOutHigh);
+		return n;
+	}
+
+	const FVector diff(oTargetPos - pPos);
+	auto w_pos = FVector(0, 0, w).Size();
+	auto w_rad = (w_pos * M_PI) / 180;
+
+
+	const float v_target_boat = FVector(oTargetVelocity.X, oTargetVelocity.Y, 0.0f).Size();
+	const float r = (v_target_boat / w_rad) * 0.98; // add effective radius from mogistink, probably because of waves
+
+	float theta_rad;
+	if (w < 0.f)
+	{
+		if (oTargetVelocity.X < 0.f)
+		{
+			theta_rad = (std::atan2f((-1 * oTargetVelocity.X), oTargetVelocity.Y));
+		}
+		else if (oTargetVelocity.X > 0.f)
+		{
+			theta_rad = (std::atan2f((-1 * oTargetVelocity.X), oTargetVelocity.Y)) + 2 * M_PI;
+		}
+	}
+	else if (w > 0.f)
+	{
+		theta_rad = (std::atan2f((-1 * oTargetVelocity.X), oTargetVelocity.Y)) + M_PI;
+	}
+
+	const float K = diff.X - (r * cosf(theta_rad));
+	const float L = diff.Y - (r * sinf(theta_rad));
+	const float M = diff.Z;
+	const float N = (981.f * fProjectileGravityScalar) / 2;
+	const float S2 = fProjectileSpeed * fProjectileSpeed;
+
+	const FVector oDiffXY(diff.X, diff.Y, 0.0f);
+	const float fGroundDist = oDiffXY.Size();
+
+	float t_init;
+	if (fGroundDist < 10000)
+	{
+		t_init = 4;
+	}
+	else if (fGroundDist < 25000)
+	{
+		t_init = 10;
+	}
+	else if (fGroundDist < 40000)
+	{
+		t_init = 15;
+	}
+	else
+	{
+		t_init = 20;
+	}
+
+	float t_best = newtonRaphson(t_init, K, L, M, N, r, w_rad, theta_rad, S2);
+
+	if (t_best < 0)
+	{
+		return 0;
+	}
+
+	const float At = oTargetPos.X - r * cos(theta_rad) + r * cos(theta_rad + (w_rad * t_best));
+	const float Bt = oTargetPos.Y - r * sin(theta_rad) + r * sin(theta_rad + (w_rad * t_best));
+	const FVector oAimAt = FVector(At, Bt, oTargetPos.Z);
+	return AimAtStaticTarget(oAimAt, fProjectileSpeed, fProjectileGravityScalar, oSourcePos, oOutLow, oOutHigh);
+}
+
 using namespace engine;
 
 void render(ImDrawList* drawList)
@@ -660,49 +768,6 @@ void render(ImDrawList* drawList)
 				localPlayerActor->CharacterMovementComponent->SwimParams.EnterSwimmingDepth = 120.f;
 				localPlayerActor->CharacterMovementComponent->SwimParams.ExitSwimmingDepth = 120.f;
 			}
-
-
-			if (cfg->game.airjump)
-			{
-				if (GetAsyncKeyState(0x43)) // C Key
-				{
-					localPlayerActor->CharacterMovementComponent->CharacterCollisionRadius = 0.0f;
-				}
-			}
-
-			if (cfg->game.speedhack)
-			{
-				if (GetAsyncKeyState(0x43)) // C Key
-				{
-					localPlayerActor->CharacterMovementComponent->SprintSpdAmp = cfg->game.playerspeed;
-					localPlayerActor->CharacterMovementComponent->SprintAccelAmp = cfg->game.playerspeed;
-				}
-			}
-
-
-			if (cfg->game.gravity)
-			{
-				if (GetAsyncKeyState(0x43)) // C Key
-				{
-					localPlayerActor->CharacterMovementComponent->GravityScale = cfg->game.gravityscale;
-				}
-			}
-
-			if (cfg->game.gravity)
-			{
-				if (GetAsyncKeyState(0x43)) // C Key
-				{
-					localPlayerActor->CharacterMovementComponent->GravityScale = cfg->game.gravityscale;
-				}
-			}
-
-			if (cfg->game.crouchspeed)
-			{
-				if (GetAsyncKeyState(0x43)) // C Key
-				{
-					localPlayerActor->CharacterMovementComponent->CrouchedSpeedMultiplier = cfg->game.crouchedspeed;
-				}
-			}
 		}
 
 		if (cfg->dev.interceptProcessEvent && engine::oProcessEvent == nullptr)
@@ -761,7 +826,7 @@ void render(ImDrawList* drawList)
 							lCon->IsFixedTimeOfDay = true;
 							lCon->FixedTimeOfDay = cfg->client.customTOD;
 						}
-						else if(lCon->IsFixedTimeOfDay)
+						else if (lCon->IsFixedTimeOfDay)
 						{
 							lCon->FixedTimeOfDay = 0.f;
 							lCon->IsFixedTimeOfDay = false;
@@ -1116,7 +1181,7 @@ void render(ImDrawList* drawList)
 								}
 							} while (false);
 						}
-						if (cfg->esp.islands.barrels && actor->isBarrel())
+						if (cfg->esp.islands.barrels && actor->isBarrel()) // TODO: galleon barrels crash on peek option (brig prob too)
 						{
 							do
 							{
@@ -1575,9 +1640,22 @@ void render(ImDrawList* drawList)
 								location = loc_mast;
 								gravity_scale = 1.f;
 								FRotator low, high;
-								int i_solutions = AimAtMovingTarget(location, actor->GetVelocity(), cannon->ProjectileSpeed, gravity_scale, cameraLocation, attachObject->GetVelocity(), low, high);
-								if (i_solutions < 1)
-									break;
+								if (cfg->aim.cannon.improvedVersion)
+								{
+									//int i_solutions = AimAtMovingTarget(location, actor->GetVelocity(), cannon->ProjectileSpeed, gravity_scale, cameraLocation, attachObject->GetVelocity(), low, high);
+
+									auto shiprepm = reinterpret_cast<AShipReplicatedM*>(actor);
+									auto angularVelocity = shiprepm->ReplicatedMovement.AngularVelocity;
+									int i_solutions = AimAtShip(location, actor->GetVelocity(), angularVelocity, cameraLocation, attachObject->GetVelocity(), cannon->ProjectileSpeed, gravity_scale, low, high);
+									if (i_solutions < 1)
+										break;
+								}
+								else
+								{
+									int i_solutions = AimAtMovingTarget(location, actor->GetVelocity(), cannon->ProjectileSpeed, gravity_scale, cameraLocation, attachObject->GetVelocity(), low, high);
+									if (i_solutions < 1)
+										break;
+								}
 								low.Clamp();
 								low -= attachObject->K2_GetActorRotation();
 								low.Clamp();
@@ -1709,9 +1787,23 @@ void render(ImDrawList* drawList)
 									}
 								}
 								FRotator low, high;
-								int i_solutions = AimAtMovingTarget(location, actor->GetVelocity(), cannon->ProjectileSpeed, gravity_scale, cameraLocation, attachObject->GetVelocity(), low, high);
-								if (i_solutions < 1)
-									break;
+
+								if (cfg->aim.cannon.improvedVersion)
+								{
+									//int i_solutions = AimAtMovingTarget(location, actor->GetVelocity(), cannon->ProjectileSpeed, gravity_scale, cameraLocation, attachObject->GetVelocity(), low, high);
+									
+									auto shiprepm = reinterpret_cast<AShipReplicatedM*>(actor);
+									auto angularVelocity = shiprepm->ReplicatedMovement.AngularVelocity;
+									int i_solutions = AimAtShip(location, actor->GetVelocity(), angularVelocity, cameraLocation, attachObject->GetVelocity(), cannon->ProjectileSpeed, gravity_scale, low, high);
+									if (i_solutions < 1)
+										break;
+								}
+								else
+								{
+									int i_solutions = AimAtMovingTarget(location, actor->GetVelocity(), cannon->ProjectileSpeed, gravity_scale, cameraLocation, attachObject->GetVelocity(), low, high);
+									if (i_solutions < 1)
+										break;
+								}
 
 
 								low.Clamp();
@@ -1758,9 +1850,22 @@ void render(ImDrawList* drawList)
 								auto forward = actor->GetActorForwardVector();
 								forward *= ship->ShipState.ShipSpeed;
 								FRotator low, high;
-								int i_solutions = AimAtMovingTarget(location, forward, cannon->ProjectileSpeed, gravity_scale, cameraLocation, attachObject->GetVelocity(), low, high);
-								if (i_solutions < 1)
-									break;
+								if (cfg->aim.cannon.improvedVersion)
+								{
+									//int i_solutions = AimAtMovingTarget(location, actor->GetVelocity(), cannon->ProjectileSpeed, gravity_scale, cameraLocation, attachObject->GetVelocity(), low, high);
+
+									auto shiprepm = reinterpret_cast<AShipReplicatedM*>(actor);
+									auto angularVelocity = shiprepm->ReplicatedMovement.AngularVelocity;
+									int i_solutions = AimAtShip(location, forward, angularVelocity, cameraLocation, attachObject->GetVelocity(), cannon->ProjectileSpeed, gravity_scale, low, high);
+									if (i_solutions < 1)
+										break;
+								}
+								else
+								{
+									int i_solutions = AimAtMovingTarget(location, forward, cannon->ProjectileSpeed, gravity_scale, cameraLocation, attachObject->GetVelocity(), low, high);
+									if (i_solutions < 1)
+										break;
+								}
 
 								low.Clamp();
 								low -= attachObject->K2_GetActorRotation();
@@ -2086,25 +2191,29 @@ void render(ImDrawList* drawList)
 					{
 						error_code = 46;
 						do {
-							if (shotFixC != 1 && !shotFixing)
+							if (!cfg->aim.others.rage)
 							{
-								shotFixC++;
-								break;
+								if (shotFixC != 1 && !shotFixing)
+								{
+									shotFixC++;
+									break;
+								}
+								if (shotDesiredTime == 0)
+								{
+									shotDesiredTime = milliseconds_now() + 210;
+									shotFixing = true;
+								}
+								if (milliseconds_now() >= shotDesiredTime)
+								{
+									shotDesiredTime = 0;
+									shotFixing = false;
+								}
+								else
+								{
+									break;
+								}
 							}
-							if (shotDesiredTime == 0)
-							{
-								shotDesiredTime = milliseconds_now() + 210;
-								shotFixing = true;
-							}
-							if (milliseconds_now() >= shotDesiredTime)
-							{
-								shotDesiredTime = 0;
-								shotFixing = false;
-							}
-							else
-							{
-								break;
-							}
+
 
 							if (!playerController->LineOfSightTo(aimBest.target, cameraLocation, false) && !cfg->aim.others.rage) break;
 
@@ -2609,6 +2718,38 @@ bool loadDevSettings()
 void ClearSunkList()
 {
 	engine::bClearSunkList = true;
+}
+
+bool loadPirateGenerator()
+{
+	bool found = false;
+	TArray<ULevel*> levels = AthenaGameViewportClient->World->Levels;
+	for (UINT32 i = 0; i < levels.Count; i++)
+	{
+		if (!levels[i])
+			continue;
+		TArray<ACharacter*> actors = levels[i]->AActors;
+		for (UINT32 j = 0; j < actors.Count; j++)
+		{
+			ACharacter* actor = actors[j];
+			if (!actor)
+				continue;
+			if (actor->compareName("BP_PirateGenerator_LineUpUI_C"))
+			{
+				found = true;
+				engine::carousel = reinterpret_cast<PirateGeneratorLineUpUI*>(actor);
+				break;
+			}
+		}
+		if (found)
+			break;
+	}
+	return found;
+}
+
+uintptr_t getPirateGenerator()
+{
+	return (uintptr_t)engine::carousel;
 }
 
 int getMapNameCode(char* name)
