@@ -157,6 +157,7 @@ public:
 				bool lowAim = false;
 				bool visibleOnly = false;
 				bool drawPred = false;
+				bool improvedVersion = false;
 			}cannon;
 			struct
 			{
@@ -174,13 +175,6 @@ public:
 			bool playerList = false;
 			bool cooking = false;
 			bool noIdleKick = false;
-			bool speedhack = false;
-			bool gravity = false;
-			float gravityscale = 1.0f;
-			bool airjump = false;
-			bool crouchspeed = false;
-			float crouchedspeed = 1.0f;
-			float playerspeed = 10.f;
 		}game;
 		struct
 		{
