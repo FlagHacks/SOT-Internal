@@ -193,7 +193,7 @@ HRESULT presentHook(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags)
 
 	auto drawList = ImGui::GetCurrentWindow()->DrawList;
 
-	if (updateGameVars()) 
+	if (updateGameVars()) // 2k22, PC can hadle it
 	{
 		render(ImGui::GetCurrentWindow()->DrawList);
 	}
@@ -254,339 +254,446 @@ HRESULT presentHook(IDXGISwapChain* swapChain, UINT syncInterval, UINT flags)
 	style->Colors[ImGuiCol_ModalWindowDarkening] = ImVec4(1.00f, 0.98f, 0.95f, 0.73f);
 
 
-		if (g_ShowMenu)
+	if (g_ShowMenu)
+	{
+		ImGui::SetNextWindowSize(ImVec2(1280, 500), ImGuiCond_Once);
+		ImGui::Begin("SOT Internal (Flag#1337)", 0, ImGuiWindowFlags_NoCollapse);
+
+
+		if (ImGui::Button("Save Settings"))
 		{
-			ImGui::SetNextWindowSize(ImVec2(1280, 500), ImGuiCond_Once);
-			ImGui::Begin("SOT Internal (Flag#1337)", 0, ImGuiWindowFlags_NoCollapse);
-
-
-			if (ImGui::Button("Save Settings"))
-			{
-				do {
-					wchar_t buf[MAX_PATH];
-					GetModuleFileNameW(g_hInstance, buf, MAX_PATH);
-					fs::path path = fs::path(buf).remove_filename() / ".settings";
-					auto file = CreateFileW(path.wstring().c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-					if (file == INVALID_HANDLE_VALUE) break;
-					DWORD written;
-					if (WriteFile(file, &Config::cfg, sizeof(Config::cfg), &written, 0)) ImGui::OpenPopup("##SettingsSaved");
-					CloseHandle(file);
-				} while (false);
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("Load Settings"))
-			{
-				do {
-					wchar_t buf[MAX_PATH];
-					GetModuleFileNameW(g_hInstance, buf, MAX_PATH);
-					fs::path path = fs::path(buf).remove_filename() / ".settings";
-					auto file = CreateFileW(path.wstring().c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-					if (file == INVALID_HANDLE_VALUE) break;
-					DWORD readed;
-					if (ReadFile(file, &Config::cfg, sizeof(Config::cfg), &readed, 0))  ImGui::OpenPopup("##SettingsLoaded");
-					CloseHandle(file);
-				} while (false);
-			}
-
-			ImGui::Separator();
-
-			if (ImGui::BeginTabBar("Bars"))
-			{
-
-
-				if (ImGui::BeginTabItem("Client"))
-				{
-					ImGui::Text("Global Client");
-
-					ImGui::Checkbox("Main Switch (Client)", &Config::cfg.client.enable);
-
-					ImGui::Spacing();
-					ImGui::Separator();
-					ImGui::Spacing();
-
-					const char* crosshair[] = { "None", "Circle", "Cross" };
-					ImGui::Checkbox("Change FOV", &Config::cfg.client.fovEnable);
-					ImGui::Checkbox("Enable Custom Time of Day (Experimental | Not safe)", &Config::cfg.client.bCustomTOD);
-					ImGui::Checkbox("Change Spyglass FOV", &Config::cfg.client.spyRClickMode);
-					ImGui::Checkbox("Crosshair", &Config::cfg.client.crosshair);
-					ImGui::Checkbox("Show Oxygen Level", &Config::cfg.client.oxygen);
-
-					ImGui::Spacing();
-					
-					ImGui::SliderFloat("FOV Value", &Config::cfg.client.fov, 60.f, 150.f, "%.0f");
-					ImGui::SliderFloat("Spyglass FOV Value", &Config::cfg.client.spyglassFovMul, 1.f, 25.f, "%.0f");
-					ImGui::SliderFloat("Time of Day", &Config::cfg.client.customTOD, 1.f, 24.f, "%.0f:00");
-					ImGui::SliderFloat("Eye of Reach FOV Factor", &Config::cfg.client.sniperFovMul, 1.f, 25.f, "%.0f");
-					ImGui::SliderFloat("Crosshair Size", &Config::cfg.client.crosshairSize, 1.f, 50.f, "%.0f");
-					ImGui::SliderFloat("Crosshair Thickness", &Config::cfg.client.crosshairThickness, 1.f, 50.f, "%.0f");
-
-					ImGui::Spacing();
-
-					ImGui::Combo("Crosshair Type", reinterpret_cast<int*>(&Config::cfg.client.crosshairType), crosshair, IM_ARRAYSIZE(crosshair));
-					ImGui::ColorEdit4("Crosshair Color", &Config::cfg.client.crosshairColor.x, 0);
-
-
-					
-					ImGui::EndTabItem();
-				}
-
-				if (ImGui::BeginTabItem("Actor ESP"))
-				{
-
-					ImGui::Text("Global");
-					ImGui::Checkbox("Main Switch (Actor)", &Config::cfg.esp.enable);
-
-					ImGui::Spacing();
-					ImGui::Separator();
-					ImGui::Spacing();
-
-					ImGui::Text("Players");
-					ImGui::Checkbox("Enable Player ESP", &Config::cfg.esp.players.enable);
-					ImGui::Checkbox("Snaplines", &Config::cfg.esp.players.tracers);
-					ImGui::Checkbox("Teammates", &Config::cfg.esp.players.team);
-					ImGui::Checkbox("Snaplines", &Config::cfg.esp.players.tracers);
-
-					ImGui::Spacing();
-					
-					ImGui::SliderFloat("Snapline Thickness", &Config::cfg.esp.players.tracersThickness, 1.f, 10.f, "%.0f");
-					ImGui::SliderFloat("Player Distance", &Config::cfg.esp.players.renderDistance, 1.f, 2000.f, "%.0f");
-
-					ImGui::Spacing();
-
-					ImGui::ColorEdit4("Visible Color", &Config::cfg.esp.players.colorVisible.x, 0);
-					ImGui::ColorEdit4("Invisible Color", &Config::cfg.esp.players.colorInvisible.x, 0);
-
-
-					ImGui::Spacing();
-
-
-					ImGui::Text("Mobs");
-
-					ImGui::Checkbox("Enable Mob ESP", &Config::cfg.esp.skeletons.enable);
-					ImGui::SliderFloat("Mob Distance", &Config::cfg.esp.skeletons.renderDistance, 1.f, 500.f, "%.0f");
-					ImGui::ColorEdit4("Color", &Config::cfg.esp.skeletons.color.x, 0);
-
-
-					ImGui::Spacing();
-					
-
-					ImGui::Text("Ships");
-
-					ImGui::Checkbox("Enable Ship ESP", &Config::cfg.esp.ships.enable);
-					ImGui::Checkbox("Show Holes", &Config::cfg.esp.ships.holes);
-					ImGui::Checkbox("Skeleton", &Config::cfg.esp.ships.skeletons);
-					ImGui::Checkbox("Ghost Ships", &Config::cfg.esp.ships.ghosts);
-					ImGui::Checkbox("Show Ladders Position", &Config::cfg.esp.ships.showLadders);
-					ImGui::Checkbox("Ship Trajectory", &Config::cfg.esp.ships.shipTray);
-
-					ImGui::Spacing();
-
-					ImGui::SliderFloat("Trajectory Thickness", &Config::cfg.esp.ships.shipTrayThickness, 0.f, 1000.f, "%.0f");
-					ImGui::SliderFloat("Trajectory Height", &Config::cfg.esp.ships.shipTrayHeight, -10.f, 20.f, "%.0f");
-					ImGui::SliderFloat("Ship ESP Distance", &Config::cfg.esp.ships.renderDistance, 1.f, 5000.f, "%.0f");
-
-					ImGui::Spacing();
-
-					ImGui::ColorEdit4("Trajectory Color", &Config::cfg.esp.ships.shipTrayCol.x, 0);
-					ImGui::ColorEdit4("Ship Color", &Config::cfg.esp.ships.color.x, 0);
-					
-					ImGui::EndTabItem();
-				}
-
-				if (ImGui::BeginTabItem("Second Hand Actor ESP"))
-				{
-					ImGui::Text("Global");
-					ImGui::Checkbox("Main Switch (2nd Actors)", &Config::cfg.esp.enable);
-
-					ImGui::Spacing();
-					ImGui::Separator();
-					ImGui::Spacing();
-
-					ImGui::Text("Island");
-
-					ImGui::Checkbox("Enable Island ESP", &Config::cfg.esp.islands.enable);
-					ImGui::Checkbox("Map Marks", &Config::cfg.esp.islands.marks);
-					ImGui::Checkbox("Show Rare Spots", &Config::cfg.esp.islands.rareNames);
-					ImGui::Checkbox("Vaults", &Config::cfg.esp.islands.vaults);
-					ImGui::Checkbox("Barrels", &Config::cfg.esp.islands.barrels);
-					ImGui::Checkbox("Peek Barrels", &Config::cfg.esp.islands.barrelspeek);
-					ImGui::Checkbox("Peek (R, Toggle)", &Config::cfg.esp.islands.barrelstoggle);
-					ImGui::Checkbox("Ammo Chests", &Config::cfg.esp.islands.ammoChest);
-
-					ImGui::Spacing();
-
-					ImGui::Text("Filter Rare Items");
-					ImGui::InputText("Items", Config::cfg.esp.islands.rareNamesFilter, IM_ARRAYSIZE(Config::cfg.esp.islands.rareNamesFilter));
-
-					ImGui::Spacing();
-
-					ImGui::SliderFloat("Barrels Distance", &Config::cfg.esp.islands.barrelsRenderDistance, 1.f, 10000.f, "%.0f");
-					ImGui::SliderFloat("Ammo Chests Distance", &Config::cfg.esp.islands.ammoChestRenderDistance, 1.f, 10000.f, "%.0f");
-					ImGui::SliderFloat("Vaults Distance", &Config::cfg.esp.islands.vaultsRenderDistance, 1.f, 10000.f, "%.0f");
-					ImGui::SliderFloat("Rare Spots Distance", &Config::cfg.esp.islands.decalsRenderDistance, 1.f, 1000.f, "%.0f");
-					ImGui::SliderFloat("Map Marks Distance", &Config::cfg.esp.islands.marksRenderDistance, 1.f, 10000.f, "%.0f");
-					ImGui::SliderFloat("Size", &Config::cfg.esp.islands.size, 1.f, 10.f, "%.0f");
-					ImGui::SliderFloat("Island Distance", &Config::cfg.esp.islands.renderDistance, 1.f, 10000.f, "%.0f");
-
-					ImGui::Spacing();
-
-					ImGui::ColorEdit4("Ammo Chests Color", &Config::cfg.esp.islands.ammoChestColor.x, 0);
-					ImGui::ColorEdit4("Island Color", &Config::cfg.esp.islands.color.x, 0);
-					ImGui::ColorEdit4("Barrels Color", &Config::cfg.esp.islands.barrelsColor.x, 0);
-					ImGui::ColorEdit4("Vaults Color", &Config::cfg.esp.islands.vaultsColor.x, 0);
-					ImGui::ColorEdit4("Rare Spots Color", &Config::cfg.esp.islands.decalsColor.x, 0);
-					ImGui::ColorEdit4("Map Marks Color", &Config::cfg.esp.islands.marksColor.x, 0);
-
-					ImGui::Spacing();
-
-					ImGui::Text("Items");
-
-					ImGui::Checkbox("Enable Item ESP", &Config::cfg.esp.items.enable);
-					ImGui::Checkbox("Toggle Names (R)", &Config::cfg.esp.items.nameToggle);
-					ImGui::Checkbox("Animals", &Config::cfg.esp.items.animals);
-					ImGui::Checkbox("Lost Cargo Assist", &Config::cfg.esp.items.lostCargo);
-					ImGui::Checkbox("GhostShips Rewards", &Config::cfg.esp.items.gsRewards);
-
-					ImGui::Spacing();
-
-					ImGui::ColorEdit4("Animals Color", &Config::cfg.esp.items.animalsColor.x, 0);
-					ImGui::ColorEdit4("Clues Color", &Config::cfg.esp.items.cluesColor.x, 0);
-					ImGui::ColorEdit4("GhostShips Reward Color", &Config::cfg.esp.items.gsRewardsColor.x, 0);
-					ImGui::ColorEdit4("Item Color", &Config::cfg.esp.items.color.x, 0);
-
-					ImGui::Spacing();
-
-					ImGui::SliderFloat("Item Distance", &Config::cfg.esp.items.renderDistance, 1.f, 500.f, "%.0f");
-					ImGui::SliderFloat("Animals Distance", &Config::cfg.esp.items.animalsRenderDistance, 1.f, 500.f, "%.0f");
-
-					ImGui::Spacing();
-
-					ImGui::Text("Others");
-
-						ImGui::Checkbox("Enable Other ESP", &Config::cfg.esp.others.enable);
-						ImGui::Checkbox("Shipwrecks", &Config::cfg.esp.others.shipwrecks);
-						ImGui::Checkbox("World Events", &Config::cfg.esp.others.events);
-						ImGui::Checkbox("Mermaids", &Config::cfg.esp.others.mermaids);
-						ImGui::Checkbox("Rowboats", &Config::cfg.esp.others.rowboats);
-						ImGui::Checkbox("Sharks", &Config::cfg.esp.others.sharks);
-
-						ImGui::Spacing();
-
-						ImGui::SliderFloat("Sharks Distance", &Config::cfg.esp.others.sharksRenderDistance, 1.f, 500.f, "%.0f");
-						ImGui::SliderFloat("World Distance", &Config::cfg.esp.others.eventsRenderDistance, 1.f, 10000.f, "%.0f");
-						ImGui::SliderFloat("Shipwrecks Distance", &Config::cfg.esp.others.shipwrecksRenderDistance, 1.f, 5000.f, "%.0f");
-						ImGui::SliderFloat("Mermaids Distance", &Config::cfg.esp.others.mermaidsRenderDistance, 1.f, 1000.f, "%.0f");
-						ImGui::SliderFloat("Rowboats Distance", &Config::cfg.esp.others.rowboatsRenderDistance, 1.f, 3500.f, "%.0f");
-
-						ImGui::Spacing();
-
-						ImGui::ColorEdit4("Rowboats Color", &Config::cfg.esp.others.rowboatsColor.x, 0);
-						ImGui::ColorEdit4("Sharks Color", &Config::cfg.esp.others.sharksColor.x, 0);
-						ImGui::ColorEdit4("World Color", &Config::cfg.esp.others.eventsColor.x, 0);
-						ImGui::ColorEdit4("Shipwrecks Color", &Config::cfg.esp.others.shipwrecksColor.x, 0);
-						ImGui::ColorEdit4("Mermaids Color", &Config::cfg.esp.others.mermaidsColor.x, 0);
-
-					
-
-					ImGui::EndTabItem();
-				}
-
-				if (ImGui::BeginTabItem("Aimbot"))
-				{
-					ImGui::Text("Global");
-					ImGui::Checkbox("Main switch (Aimbot)", &Config::cfg.aim.enable);
-
-					ImGui::Spacing();
-					ImGui::Separator();
-					ImGui::Spacing();
-
-					ImGui::Text("Weapon");
-					ImGui::Checkbox("Aimbot (W)", &Config::cfg.aim.weapon.enable);
-					ImGui::Checkbox("Players (W)", &Config::cfg.aim.weapon.players);
-					ImGui::Checkbox("Skeletons (W)", &Config::cfg.aim.weapon.skeletons);
-					ImGui::Checkbox("Gunpowder", &Config::cfg.aim.weapon.kegs);
-					ImGui::Checkbox("Instant Shot", &Config::cfg.aim.weapon.trigger);
-					ImGui::Checkbox("Visible Only", &Config::cfg.aim.weapon.visibleOnly);
-
-					ImGui::Spacing();
-
-					ImGui::SliderFloat("Pitch (W)", &Config::cfg.aim.weapon.fPitch, 1.f, 100.f, "%.0f");
-					ImGui::SliderFloat("Yaw (W)", &Config::cfg.aim.weapon.fYaw, 1.f, 100.f, "%.0f");
-					ImGui::SliderFloat("Smoothness", &Config::cfg.aim.weapon.smooth, 1.f, 10.f, "%.0f");
-					ImGui::SliderFloat("Height", &Config::cfg.aim.weapon.height, 1.f, 100.f, "%.0f");
-
-					ImGui::Spacing();
-
-					ImGui::Text("Cannon");
-					ImGui::Checkbox("Aimbot (C)", &Config::cfg.aim.cannon.enable);
-					ImGui::Checkbox("Draw Trajectory", &Config::cfg.aim.cannon.drawPred);
-					ImGui::Checkbox("Instant Shot", &Config::cfg.aim.cannon.instant);
-					ImGui::Checkbox("Chain Shots", &Config::cfg.aim.cannon.chains);
-					ImGui::Checkbox("Players (W)", &Config::cfg.aim.cannon.players);
-					ImGui::Checkbox("Skeletons (W)", &Config::cfg.aim.cannon.skeletons);
-					ImGui::Checkbox("Ghost Ships", &Config::cfg.aim.cannon.ghostShips);
-					ImGui::Checkbox("Aim To Hull", &Config::cfg.aim.cannon.lowAim);
-					ImGui::Checkbox("Player to Deck", &Config::cfg.aim.cannon.deckshots);
-					ImGui::Checkbox("Visible Only", &Config::cfg.aim.cannon.visibleOnly);
-
-					ImGui::Spacing();
-
-					ImGui::SliderFloat("Pitch (C)", &Config::cfg.aim.cannon.fPitch, 1.f, 100.f, "%.0f");
-					ImGui::SliderFloat("Yaw (C)", &Config::cfg.aim.cannon.fYaw, 1.f, 100.f, "%.0f");
-
-
-					ImGui::EndTabItem();
-				}
-
-				if (ImGui::BeginTabItem("Game"))
-				{
-					ImGui::Text("Global Game");
-						ImGui::Checkbox("Master Switch (Game)", &Config::cfg.game.enable);
-
-						ImGui::Spacing();
-						ImGui::Separator();
-						ImGui::Spacing();
-
-						ImGui::Checkbox("Current Ship Info", &Config::cfg.game.shipInfo);
-						ImGui::Checkbox("Map Pins", &Config::cfg.game.mapPins);
-						ImGui::Checkbox("Player List", &Config::cfg.game.playerList);
-						ImGui::Checkbox("Cooking Tracker", &Config::cfg.game.cooking);
-						ImGui::Checkbox("Anti Idle", &Config::cfg.game.noIdleKick);
-						ImGui::Checkbox("TP to Floor of Ocean (C)", &Config::cfg.game.walkUnderwater);
-						ImGui::Checkbox("Speedhack (C)", &Config::cfg.game.speedhack);
-						ImGui::Checkbox("No Clip (C)", &Config::cfg.game.airjump);
-						ImGui::Checkbox("Gravity Modification (C)", &Config::cfg.game.gravity);
-						ImGui::Checkbox("Crouched Speed Modification (C)", &Config::cfg.game.crouchspeed);
-						ImGui::Checkbox("Show Sunken Location", &Config::cfg.game.showSunk);
-						ImGui::SliderFloat("Gravity Modification Amount", &Config::cfg.game.gravityscale, 1.f, 100.f, "%.0f");
-						ImGui::SliderFloat("Crouched Speed Modification Amount", &Config::cfg.game.crouchedspeed, 1.f, 100.f, "%.0f");
-
-						ImGui::Spacing();
-
-						ImGui::SliderFloat("Speed Value", &Config::cfg.game.playerspeed, 0.f, 100.f, "%.0f");
-						ImGui::ColorEdit4("Sunken Ship Color", &Config::cfg.game.sunkColor.x, 0);
-
-						ImGui::Spacing();
-
-						if (ImGui::Button("Clear Sunken List"))
-						{
-							ClearSunkList();
-						}
-					ImGui::EndTabItem();
-				}
-
-
-
-				ImGui::EndTabBar();
-			}
-
-			ImGui::End();
+			do {
+				wchar_t buf[MAX_PATH];
+				GetModuleFileNameW(g_hInstance, buf, MAX_PATH);
+				fs::path path = fs::path(buf).remove_filename() / ".settings";
+				auto file = CreateFileW(path.wstring().c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+				if (file == INVALID_HANDLE_VALUE) break;
+				DWORD written;
+				if (WriteFile(file, &Config::cfg, sizeof(Config::cfg), &written, 0)) ImGui::OpenPopup("##SettingsSaved");
+				CloseHandle(file);
+			} while (false);
 		}
+		ImGui::SameLine();
+		if (ImGui::Button("Load Settings"))
+		{
+			do {
+				wchar_t buf[MAX_PATH];
+				GetModuleFileNameW(g_hInstance, buf, MAX_PATH);
+				fs::path path = fs::path(buf).remove_filename() / ".settings";
+				auto file = CreateFileW(path.wstring().c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+				if (file == INVALID_HANDLE_VALUE) break;
+				DWORD readed;
+				if (ReadFile(file, &Config::cfg, sizeof(Config::cfg), &readed, 0))  ImGui::OpenPopup("##SettingsLoaded");
+				CloseHandle(file);
+			} while (false);
+		}
+
+		ImGui::Separator();
+
+		if (ImGui::BeginTabBar("Bars"))
+		{
+
+
+			if (ImGui::BeginTabItem("Client"))
+			{
+				ImGui::Text("Global Client");
+
+				ImGui::Checkbox("Main Switch (Client)", &Config::cfg.client.enable);
+
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+
+				const char* crosshair[] = { "None", "Circle", "Cross" };
+				ImGui::Checkbox("Change FOV", &Config::cfg.client.fovEnable);
+				ImGui::Checkbox("Enable Custom Time of Day (Experimental | Not safe)", &Config::cfg.client.bCustomTOD);
+				ImGui::Checkbox("Change Spyglass FOV", &Config::cfg.client.spyRClickMode);
+				ImGui::Checkbox("Crosshair", &Config::cfg.client.crosshair);
+				ImGui::Checkbox("Show Oxygen Level", &Config::cfg.client.oxygen);
+
+				ImGui::Spacing();
+
+				ImGui::SliderFloat("FOV Value", &Config::cfg.client.fov, 60.f, 150.f, "%.0f");
+				ImGui::SliderFloat("Spyglass FOV Value", &Config::cfg.client.spyglassFovMul, 1.f, 25.f, "%.0f");
+				ImGui::SliderFloat("Time of Day", &Config::cfg.client.customTOD, 1.f, 24.f, "%.0f:00");
+				ImGui::SliderFloat("Eye of Reach FOV Factor", &Config::cfg.client.sniperFovMul, 1.f, 25.f, "%.0f");
+				ImGui::SliderFloat("Crosshair Size", &Config::cfg.client.crosshairSize, 1.f, 50.f, "%.0f");
+				ImGui::SliderFloat("Crosshair Thickness", &Config::cfg.client.crosshairThickness, 1.f, 50.f, "%.0f");
+
+				ImGui::Spacing();
+
+				ImGui::Combo("Crosshair Type", reinterpret_cast<int*>(&Config::cfg.client.crosshairType), crosshair, IM_ARRAYSIZE(crosshair));
+				ImGui::ColorEdit4("Crosshair Color", &Config::cfg.client.crosshairColor.x, 0);
+
+
+
+				ImGui::EndTabItem();
+			}
+
+			if (ImGui::BeginTabItem("Actor ESP"))
+			{
+
+				ImGui::Text("Global");
+				ImGui::Checkbox("Main Switch (Actor)", &Config::cfg.esp.enable);
+
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+
+				ImGui::Text("Players");
+				ImGui::Checkbox("Enable Player ESP", &Config::cfg.esp.players.enable);
+				ImGui::Checkbox("Snaplines", &Config::cfg.esp.players.tracers);
+				ImGui::Checkbox("Teammates", &Config::cfg.esp.players.team);
+				ImGui::Checkbox("Snaplines", &Config::cfg.esp.players.tracers);
+
+				ImGui::Spacing();
+
+				ImGui::SliderFloat("Snapline Thickness", &Config::cfg.esp.players.tracersThickness, 1.f, 10.f, "%.0f");
+				ImGui::SliderFloat("Player Distance", &Config::cfg.esp.players.renderDistance, 1.f, 2000.f, "%.0f");
+
+				ImGui::Spacing();
+
+				ImGui::ColorEdit4("Visible Color", &Config::cfg.esp.players.colorVisible.x, 0);
+				ImGui::ColorEdit4("Invisible Color", &Config::cfg.esp.players.colorInvisible.x, 0);
+
+
+				ImGui::Spacing();
+
+
+				ImGui::Text("Mobs");
+
+				ImGui::Checkbox("Enable Mob ESP", &Config::cfg.esp.skeletons.enable);
+				ImGui::SliderFloat("Mob Distance", &Config::cfg.esp.skeletons.renderDistance, 1.f, 500.f, "%.0f");
+				ImGui::ColorEdit4("Color", &Config::cfg.esp.skeletons.color.x, 0);
+
+
+				ImGui::Spacing();
+
+
+				ImGui::Text("Ships");
+
+				ImGui::Checkbox("Enable Ship ESP", &Config::cfg.esp.ships.enable);
+				ImGui::Checkbox("Show Holes", &Config::cfg.esp.ships.holes);
+				ImGui::Checkbox("Skeleton", &Config::cfg.esp.ships.skeletons);
+				ImGui::Checkbox("Ghost Ships", &Config::cfg.esp.ships.ghosts);
+				ImGui::Checkbox("Show Ladders Position", &Config::cfg.esp.ships.showLadders);
+				ImGui::Checkbox("Ship Trajectory", &Config::cfg.esp.ships.shipTray);
+
+				ImGui::Spacing();
+
+				ImGui::SliderFloat("Trajectory Thickness", &Config::cfg.esp.ships.shipTrayThickness, 0.f, 1000.f, "%.0f");
+				ImGui::SliderFloat("Trajectory Height", &Config::cfg.esp.ships.shipTrayHeight, -10.f, 20.f, "%.0f");
+				ImGui::SliderFloat("Ship ESP Distance", &Config::cfg.esp.ships.renderDistance, 1.f, 5000.f, "%.0f");
+
+				ImGui::Spacing();
+
+				ImGui::ColorEdit4("Trajectory Color", &Config::cfg.esp.ships.shipTrayCol.x, 0);
+				ImGui::ColorEdit4("Ship Color", &Config::cfg.esp.ships.color.x, 0);
+
+				ImGui::EndTabItem();
+			}
+
+			if (ImGui::BeginTabItem("Second Hand Actor ESP"))
+			{
+				ImGui::Text("Global");
+				ImGui::Checkbox("Main Switch (2nd Actors)", &Config::cfg.esp.enable);
+
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+
+				ImGui::Text("Island");
+
+				ImGui::Checkbox("Enable Island ESP", &Config::cfg.esp.islands.enable);
+				ImGui::Checkbox("Map Marks", &Config::cfg.esp.islands.marks);
+				ImGui::Checkbox("Show Rare Spots", &Config::cfg.esp.islands.rareNames);
+				ImGui::Checkbox("Vaults", &Config::cfg.esp.islands.vaults);
+				ImGui::Checkbox("Barrels", &Config::cfg.esp.islands.barrels);
+				ImGui::Checkbox("Peek Barrels", &Config::cfg.esp.islands.barrelspeek);
+				ImGui::Checkbox("Peek (R, Toggle)", &Config::cfg.esp.islands.barrelstoggle);
+				ImGui::Checkbox("Ammo Chests", &Config::cfg.esp.islands.ammoChest);
+
+				ImGui::Spacing();
+
+				ImGui::Text("Filter Rare Items");
+				ImGui::InputText("Items", Config::cfg.esp.islands.rareNamesFilter, IM_ARRAYSIZE(Config::cfg.esp.islands.rareNamesFilter));
+
+				ImGui::Spacing();
+
+				ImGui::SliderFloat("Barrels Distance", &Config::cfg.esp.islands.barrelsRenderDistance, 1.f, 10000.f, "%.0f");
+				ImGui::SliderFloat("Ammo Chests Distance", &Config::cfg.esp.islands.ammoChestRenderDistance, 1.f, 10000.f, "%.0f");
+				ImGui::SliderFloat("Vaults Distance", &Config::cfg.esp.islands.vaultsRenderDistance, 1.f, 10000.f, "%.0f");
+				ImGui::SliderFloat("Rare Spots Distance", &Config::cfg.esp.islands.decalsRenderDistance, 1.f, 1000.f, "%.0f");
+				ImGui::SliderFloat("Map Marks Distance", &Config::cfg.esp.islands.marksRenderDistance, 1.f, 10000.f, "%.0f");
+				ImGui::SliderFloat("Size", &Config::cfg.esp.islands.size, 1.f, 10.f, "%.0f");
+				ImGui::SliderFloat("Island Distance", &Config::cfg.esp.islands.renderDistance, 1.f, 10000.f, "%.0f");
+
+				ImGui::Spacing();
+
+				ImGui::ColorEdit4("Ammo Chests Color", &Config::cfg.esp.islands.ammoChestColor.x, 0);
+				ImGui::ColorEdit4("Island Color", &Config::cfg.esp.islands.color.x, 0);
+				ImGui::ColorEdit4("Barrels Color", &Config::cfg.esp.islands.barrelsColor.x, 0);
+				ImGui::ColorEdit4("Vaults Color", &Config::cfg.esp.islands.vaultsColor.x, 0);
+				ImGui::ColorEdit4("Rare Spots Color", &Config::cfg.esp.islands.decalsColor.x, 0);
+				ImGui::ColorEdit4("Map Marks Color", &Config::cfg.esp.islands.marksColor.x, 0);
+
+				ImGui::Spacing();
+
+				ImGui::Text("Items");
+
+				ImGui::Checkbox("Enable Item ESP", &Config::cfg.esp.items.enable);
+				ImGui::Checkbox("Toggle Names (R)", &Config::cfg.esp.items.nameToggle);
+				ImGui::Checkbox("Animals", &Config::cfg.esp.items.animals);
+				ImGui::Checkbox("Lost Cargo Assist", &Config::cfg.esp.items.lostCargo);
+				ImGui::Checkbox("GhostShips Rewards", &Config::cfg.esp.items.gsRewards);
+
+				ImGui::Spacing();
+
+				ImGui::ColorEdit4("Animals Color", &Config::cfg.esp.items.animalsColor.x, 0);
+				ImGui::ColorEdit4("Clues Color", &Config::cfg.esp.items.cluesColor.x, 0);
+				ImGui::ColorEdit4("GhostShips Reward Color", &Config::cfg.esp.items.gsRewardsColor.x, 0);
+				ImGui::ColorEdit4("Item Color", &Config::cfg.esp.items.color.x, 0);
+
+				ImGui::Spacing();
+
+				ImGui::SliderFloat("Item Distance", &Config::cfg.esp.items.renderDistance, 1.f, 500.f, "%.0f");
+				ImGui::SliderFloat("Animals Distance", &Config::cfg.esp.items.animalsRenderDistance, 1.f, 500.f, "%.0f");
+
+				ImGui::Spacing();
+
+				ImGui::Text("Others");
+
+				ImGui::Checkbox("Enable Other ESP", &Config::cfg.esp.others.enable);
+				ImGui::Checkbox("Shipwrecks", &Config::cfg.esp.others.shipwrecks);
+				ImGui::Checkbox("World Events", &Config::cfg.esp.others.events);
+				ImGui::Checkbox("Mermaids", &Config::cfg.esp.others.mermaids);
+				ImGui::Checkbox("Rowboats", &Config::cfg.esp.others.rowboats);
+				ImGui::Checkbox("Sharks", &Config::cfg.esp.others.sharks);
+
+				ImGui::Spacing();
+
+				ImGui::SliderFloat("Sharks Distance", &Config::cfg.esp.others.sharksRenderDistance, 1.f, 500.f, "%.0f");
+				ImGui::SliderFloat("World Distance", &Config::cfg.esp.others.eventsRenderDistance, 1.f, 10000.f, "%.0f");
+				ImGui::SliderFloat("Shipwrecks Distance", &Config::cfg.esp.others.shipwrecksRenderDistance, 1.f, 5000.f, "%.0f");
+				ImGui::SliderFloat("Mermaids Distance", &Config::cfg.esp.others.mermaidsRenderDistance, 1.f, 1000.f, "%.0f");
+				ImGui::SliderFloat("Rowboats Distance", &Config::cfg.esp.others.rowboatsRenderDistance, 1.f, 3500.f, "%.0f");
+
+				ImGui::Spacing();
+
+				ImGui::ColorEdit4("Rowboats Color", &Config::cfg.esp.others.rowboatsColor.x, 0);
+				ImGui::ColorEdit4("Sharks Color", &Config::cfg.esp.others.sharksColor.x, 0);
+				ImGui::ColorEdit4("World Color", &Config::cfg.esp.others.eventsColor.x, 0);
+				ImGui::ColorEdit4("Shipwrecks Color", &Config::cfg.esp.others.shipwrecksColor.x, 0);
+				ImGui::ColorEdit4("Mermaids Color", &Config::cfg.esp.others.mermaidsColor.x, 0);
+
+
+
+				ImGui::EndTabItem();
+			}
+
+			if (ImGui::BeginTabItem("Aimbot"))
+			{
+				ImGui::Text("Global");
+				ImGui::Checkbox("Main switch (Aimbot)", &Config::cfg.aim.enable);
+
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+
+				ImGui::Text("Weapon");
+				ImGui::Checkbox("Aimbot (W)", &Config::cfg.aim.weapon.enable);
+				ImGui::Checkbox("Players (W)", &Config::cfg.aim.weapon.players);
+				ImGui::Checkbox("Skeletons (W)", &Config::cfg.aim.weapon.skeletons);
+				ImGui::Checkbox("Gunpowder", &Config::cfg.aim.weapon.kegs);
+				ImGui::Checkbox("Instant Shot", &Config::cfg.aim.weapon.trigger);
+				ImGui::Checkbox("Visible Only", &Config::cfg.aim.weapon.visibleOnly);
+
+				ImGui::Spacing();
+
+				ImGui::SliderFloat("Pitch (W)", &Config::cfg.aim.weapon.fPitch, 1.f, 100.f, "%.0f");
+				ImGui::SliderFloat("Yaw (W)", &Config::cfg.aim.weapon.fYaw, 1.f, 100.f, "%.0f");
+				ImGui::SliderFloat("Smoothness", &Config::cfg.aim.weapon.smooth, 1.f, 10.f, "%.0f");
+				ImGui::SliderFloat("Height", &Config::cfg.aim.weapon.height, 1.f, 100.f, "%.0f");
+
+				ImGui::Spacing();
+
+				ImGui::Text("Cannon");
+				ImGui::Checkbox("Aimbot (C)", &Config::cfg.aim.cannon.enable);
+				ImGui::Checkbox("Draw Trajectory", &Config::cfg.aim.cannon.drawPred);
+				ImGui::Checkbox("Instant Shot", &Config::cfg.aim.cannon.instant);
+				ImGui::Checkbox("Chain Shots", &Config::cfg.aim.cannon.chains);
+				ImGui::Checkbox("Players (W)", &Config::cfg.aim.cannon.players);
+				ImGui::Checkbox("Skeletons (W)", &Config::cfg.aim.cannon.skeletons);
+				ImGui::Checkbox("Ghost Ships", &Config::cfg.aim.cannon.ghostShips);
+				ImGui::Checkbox("Aim To Hull", &Config::cfg.aim.cannon.lowAim);
+				ImGui::Checkbox("Player to Deck", &Config::cfg.aim.cannon.deckshots);
+				ImGui::Checkbox("Visible Only", &Config::cfg.aim.cannon.visibleOnly);
+				ImGui::Checkbox("Improved Cannon Aim", &Config::cfg.aim.cannon.improvedVersion);
+
+				ImGui::Spacing();
+
+				ImGui::SliderFloat("Pitch (C)", &Config::cfg.aim.cannon.fPitch, 1.f, 100.f, "%.0f");
+				ImGui::SliderFloat("Yaw (C)", &Config::cfg.aim.cannon.fYaw, 1.f, 100.f, "%.0f");
+
+
+				ImGui::EndTabItem();
+			}
+
+			if (ImGui::BeginTabItem("Game"))
+			{
+				ImGui::Text("Global Game");
+				ImGui::Checkbox("Master Switch (Game)", &Config::cfg.game.enable);
+
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+
+				ImGui::Checkbox("Current Ship Info", &Config::cfg.game.shipInfo);
+				ImGui::Checkbox("Map Pins", &Config::cfg.game.mapPins);
+				ImGui::Checkbox("Player List", &Config::cfg.game.playerList);
+				ImGui::Checkbox("Cooking Tracker", &Config::cfg.game.cooking);
+				ImGui::Checkbox("Anti Idle", &Config::cfg.game.noIdleKick);
+				ImGui::Checkbox("TP to Floor of Ocean (C)", &Config::cfg.game.walkUnderwater);
+				ImGui::Checkbox("Show Sunken Location", &Config::cfg.game.showSunk);
+
+				if (ImGui::Button("Custom Pirate"))
+				{
+					if (loadPirateGenerator())
+					{
+						engine::bInPirateGenerator = true;
+						g_ShowMenu = false;
+					}
+					else
+					{
+						ImGui::OpenPopup("##PirateGeneratorLoaded");
+					}
+				}
+				if (ImGui::BeginPopupModal("##PirateGeneratorLoaded", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar))
+				{
+					ImGui::Text("\nSomething went wrong.\nThis must be used in the character creator.\n\n");
+					ImGui::Separator();
+					if (ImGui::Button("OK", { 170.f , 0.f })) { ImGui::CloseCurrentPopup(); }
+					ImGui::EndPopup();
+				}
+
+				ImGui::Spacing();
+
+				ImGui::ColorEdit4("Sunken Ship Color", &Config::cfg.game.sunkColor.x, 0);
+
+				ImGui::Spacing();
+
+				if (ImGui::Button("Clear Sunken List"))
+				{
+					ClearSunkList();
+				}
+				ImGui::EndTabItem();
+			}
+
+
+
+			ImGui::EndTabBar();
+		}
+
+		ImGui::End();
+	}
+
+	if (engine::bInPirateGenerator)
+	{
+		PirateGeneratorLineUpUI* p = (PirateGeneratorLineUpUI*)getPirateGenerator();
+		auto pirateDescs = p->CarouselPirateDescs;
+		ImGui::SetNextWindowPos(ImVec2(10, 25), ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(800, 400), ImGuiCond_Once);
+		ImGui::Begin("Pirate Customizer", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
+		ImGui::Text("Open Cheat Menu (INSERT) to be able to interact with this Window");
+		if (ImGui::Button("Close"))
+		{
+			engine::bInPirateGenerator = false;
+		}
+
+		ImGui::Separator();
+		ImGui::Text("Template Pirate Seed: %d", tPirateSeedN);
+		ImGui::SameLine();
+		if (ImGui::Button("Reset"))
+		{
+			ZeroMemory(tPirateSeed, sizeof(tPirateSeed));
+			tPirateSeedN = 0;
+		}
+		ImGui::InputText("Template Pirate Seed", tPirateSeed, IM_ARRAYSIZE(tPirateSeed));
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		{
+			ImGui::SetTooltip("This will affect the Characters Face! This also may look different in-game");
+		}
+		ImGui::SliderInt("Template Pirate Gender", &tPirateGender, -1, 2);
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		{
+			ImGui::SetTooltip("Syntax 1 = Male, Syntax 2 = Female");
+		}
+		ImGui::SliderFloat("Template Pirate Age", &tPirateAge, -1.0f, 1.0f, "%.1f");
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		{
+			ImGui::SetTooltip("");
+		}
+		ImGui::SliderInt("Template Pirate Ethnicity", &tPirateEthnicity, -1, 4);
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		{
+			ImGui::SetTooltip("Syntax 1 = Asian , Syntax 2 = Black, Syntax 3 = White ");
+		}
+		ImGui::SliderFloat("Template Pirate BodyType", &tPirateBodyType, -1.0f, 1.0f, "%.1f");
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		{
+			ImGui::SetTooltip("Changes the Characters Body type");
+		}
+		ImGui::SliderFloat("Template Pirate BodyType Modifier", &tPirateBodyTypeModifier, -1.0f, 1.0f, "%.1f");
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		{
+			ImGui::SetTooltip("Changes the Characters Body type V2 (use if other option doesnt work)");
+		}
+		ImGui::SliderFloat("Template Pirate Dirtiness", &tPirateDirtiness, -1.0f, 1.0f, "%.2f");
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		{
+			ImGui::SetTooltip("Makes Character Dirtier");
+		}
+		ImGui::SliderFloat("Template Pirate Wonkiness", &tPirateWonkiness, -1.0f, 1.0f, "%.2f");
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+		{
+			ImGui::SetTooltip("Zaza Simulator");
+		}
+		for (UINT8 i = 0; i < pirateDescs.Count; i++)
+		{
+			char pBuf[0x64];
+			int filterSize = sprintf_s(pBuf, sizeof(pBuf), tPirateSeed);
+			if (filterSize != 0)
+			{
+				try
+				{
+					tPirateSeedN = std::stoi(std::string(pBuf));
+				}
+				catch (...)
+				{
+					tPirateSeedN = 0;
+					tslog::info("Seed must be a valid int32 number.");
+				}
+			}
+			else
+			{
+				tPirateSeedN = 0;
+			}
+			if (tPirateSeedN != 0) pirateDescs[i].Seed = tPirateSeedN;
+			if (tPirateGender > 0) pirateDescs[i].Gender = tPirateGender;
+			if (tPirateAge >= 0.0f) pirateDescs[i].Age = tPirateAge;
+			if (tPirateEthnicity > 0) pirateDescs[i].Ethnicity = tPirateEthnicity;
+
+			if (tPirateBodyType >= 0.0f) pirateDescs[i].BodyShape.NormalizedAngle = tPirateBodyType;
+			if (tPirateBodyTypeModifier >= 0.0f) pirateDescs[i].BodyShape.RadialDistance = tPirateBodyTypeModifier;
+			if (tPirateDirtiness >= 0.0f) pirateDescs[i].Dirtiness = tPirateDirtiness;
+			if (tPirateWonkiness >= 0.0f) pirateDescs[i].Wonkiness = tPirateWonkiness;
+		}
+		ImGui::End();
+	}
 
 	ImGui::Render();
 	context->OMSetRenderTargets(1, &rtv, nullptr);
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
 	return oDX11Present(swapChain, syncInterval, flags);
 }
 
