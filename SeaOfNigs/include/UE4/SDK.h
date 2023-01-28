@@ -1300,8 +1300,6 @@ struct UAthenaCharacterMovementComponent {
 	char UnknownData_590[0x8]; // 0x590(0x08)
 	struct FAthenaCharacterSwimParams SwimParams; // 0x598(0x9c)
 	float SprintSpdAmp; // 0x634(0x04)
-	float CrouchedSpeedMultiplier; // 0x278(0x04)
-	float GravityScale;	// 0x180(0x04)
 	float SprintAccelAmp; // 0x638(0x04)
 	float LookAtYawRate; // 0x63c(0x04)
 	float LookAtPitchRate; // 0x640(0x04)
@@ -2842,4 +2840,31 @@ struct ALightingController {
 	bool IsFixedTimeOfDay; // 0x730(0x01)
 	char UnknownData_731[0x7]; // 0x731(0x07)
 
+};
+
+// ScriptStruct PirateGenerator.RadialCoordinate
+// Size: 0x08 (Inherited: 0x00)
+struct FRadialCoordinate {
+	float NormalizedAngle; // 0x00(0x04)
+	float RadialDistance; // 0x04(0x04)
+};
+
+// ScriptStruct Athena.CarouselPirateDesc
+// Size: 0x30 (Inherited: 0x00)
+struct FCarouselPirateDesc {
+	int32_t Seed; // 0x00(0x04)
+	char Gender; // 0x04(0x01)
+	char Ethnicity; // 0x05(0x01)
+	char UnknownData_6[0x2]; // 0x06(0x02)
+	float Age; // 0x08(0x04)
+	struct FRadialCoordinate BodyShape; // 0x0c(0x08)
+	float Dirtiness; // 0x14(0x04)
+	float Wonkiness; // 0x18(0x04)
+	char UnknownData_1C[0x4]; // 0x1c(0x04)
+	struct TArray<struct UClass*> Outfit; // 0x20(0x10)
+};
+
+struct PirateGeneratorLineUpUI {
+	char pad_00[0x3e8]; // 0x0 (0x3e8)
+	struct TArray<struct FCarouselPirateDesc> CarouselPirateDescs; // 0x3e8(0x10)
 };
